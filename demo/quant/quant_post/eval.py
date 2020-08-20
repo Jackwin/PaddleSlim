@@ -22,7 +22,8 @@ import paddle
 import paddle.fluid as fluid
 sys.path[0] = os.path.join(
     os.path.dirname("__file__"), os.path.pardir, os.path.pardir)
-import imagenet_reader as reader
+#import imagenet_reader as reader
+import reader_cv2 as reader
 from utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -32,6 +33,8 @@ add_arg('use_gpu',          bool, True,                 "Whether to use GPU or n
 add_arg('model_path', str,  "./pruning/checkpoints/resnet50/2/eval_model/",                 "Whether to use pretrained model.")
 add_arg('model_name', str,  None, "model filename for inference model")
 add_arg('params_name', str, None, "params filename for inference model")
+add_arg('image_shape',      str, "3,224,224",       "Input image size")
+add_arg('resize_short_size', int, 256,                      "Set resize short size")
 # yapf: enable
 
 
@@ -46,7 +49,7 @@ def eval(args):
         exe,
         model_filename=args.model_name,
         params_filename=args.params_name)
-    val_reader = paddle.batch(reader.val(), batch_size=128)
+    val_reader = paddle.batch(reader.val(settings=args), batch_size=128)
     feeder = fluid.DataFeeder(
         place=place, feed_list=feed_target_names, program=val_program)
 
