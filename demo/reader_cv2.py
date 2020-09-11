@@ -27,9 +27,9 @@ np.random.seed(0)
 
 DATA_DIM = 224
 
-THREAD = 8
+THREAD = 4
 BUF_SIZE = 2048
-DATA_DIR = '../../data/fruit_veg_0913'
+DATA_DIR = '../../data/果蔬23_0910'
 
 img_mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
 img_std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1))
