@@ -20,19 +20,60 @@ import numpy as np
 import cv2
 import io
 
+import argparse
+from utility import add_arguments, print_arguments
+
 import paddle
+
+parser = argparse.ArgumentParser(description=__doc__)
+add_arg = functools.partial(add_arguments, argparser=parser)
+
+add_arg('data_dim',       int,  224,                 "data dimension")
+add_arg('data_dir',       str,  "../../data/果蔬23_0910",  "data dir")
+add_arg('image_mean',      str, "0.485,0.456,0.406",       "Input image mean")
+add_arg('image_std',      str, "0.229,0.224,0.225",       "Input image standards")
+add_arg('thread_num',       int,  4,                 "thread number")
+add_arg('buf_size',       int,  224,                 "buffer size")
+
 
 random.seed(0)
 np.random.seed(0)
 
-DATA_DIM = 224
+#DATA_DIM = 224
+#THREAD = 4
+#BUF_SIZE = 2048
+#DATA_DIR = '../../data/果蔬23_0910'
+#img_mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
+#img_std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1))
 
+## 果蔬模型 ResNet50 InceptionV4
+#DATA_DIM = 224
+#THREAD = 4
+#BUF_SIZE = 2048
+#DATA_DIR = '../../data/果蔬23_0910'
+#img_mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
+#img_std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1))
+
+### ShuffleNetV2-yolov3
+
+DATA_DIM = 384
 THREAD = 4
 BUF_SIZE = 2048
-DATA_DIR = '../../data/果蔬23_0910'
+DATA_DIR = '../../data/pascalvoc'
+TRAIN_LIST = "train.txt"
+img_mean = np.array([0.5, 0.5, 0.5]).reshape((3, 1, 1))
+img_std = np.array([0.007843, 0.007843, 0.007843]).reshape((3, 1, 1))
 
-img_mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
-img_std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1))
+#args = parser.parse_args()
+#print_arguments(args)
+
+#DATA_DIM = args.data_dim
+#THREAD = args.thread_num
+#BUF_SIZE = args.buf_size
+#DATA_DIR = args.data_dir
+#img_mean = np.array([args.image_mean[0]], [args.image_mean[1]], [args.image_mean[2]]).reshape((3, 1, 1))
+#img_std = np.array([args.image_std[0]], [args.image_std[1]], [args.image_std[2]]).reshape((3, 1, 1))
+
 
 
 def rotate_image(img):
@@ -248,6 +289,7 @@ def process_image(sample,
     img /= img_std
 
     if mode == 'train' or mode == 'val':
+        print (sample[1])
         return (img, sample[1])
     elif mode == 'test':
         return (img, )
@@ -269,6 +311,7 @@ def _reader_creator(settings,
     def reader():
         with open(file_list) as flist:
             full_lines = [line.strip() for line in flist]
+
             if shuffle:
                 if pass_id_as_seed:
                     np.random.seed(pass_id_as_seed)
@@ -286,14 +329,18 @@ def _reader_creator(settings,
                        len(full_lines)))
             else:
                 lines = full_lines
+            
 
             for line in lines:
                 if mode == 'train' or mode == 'val':
                     if len(line.split())>2:
                         continue
                     img_path, label = line.split()
+                    ## debug
+                    ##print (img_path)
                     img_path = os.path.join(data_dir, img_path)
-                    yield img_path, int(label)
+                    #yield img_path, int(label)
+                    yield img_path, 0
                 elif mode == 'test':
                     if len(line.split())>2:
                         continue
@@ -315,12 +362,14 @@ def _reader_creator(settings,
     return reader
 
 
-def train(settings, data_dir=DATA_DIR, pass_id_as_seed=0):
-    file_list = os.path.join(data_dir, 'train_list.txt')
+def train(settings, data_dir=DATA_DIR, pass_id_as_seed=0, train_list_name=TRAIN_LIST):
+    #file_list = os.path.join(data_dir, 'train_list.txt')
+    file_list = os.path.join(data_dir, TRAIN_LIST)
     reader = _reader_creator(
         settings,
         file_list,
         'train',
+        #'test',
         shuffle=True,
         color_jitter=False,
         rotate=False,

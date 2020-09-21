@@ -14,7 +14,6 @@ from paddleslim.common import get_logger
 import models
 from utility import add_arguments, print_arguments
 import models.inception_v4 as Model
-import models.resnet as Model
 
 _logger = get_logger(__name__, level=logging.INFO)
 
@@ -82,8 +81,8 @@ def export_model(args):
     assert args.model in model_list, "{} is not in lists: {}".format(
         args.model, model_list)
     # model definition
-    model = models.__dict__[args.model]()
-    #model = Model.InceptionV4()
+    # model = models.__dict__[args.model]()
+    model = Model.InceptionV4()
     out = model.net(input=image, class_dim=class_dim)
     val_program = fluid.default_main_program().clone(for_test=True)
     place = fluid.CUDAPlace(0) if args.use_gpu else fluid.CPUPlace()

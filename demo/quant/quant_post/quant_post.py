@@ -30,7 +30,15 @@ add_arg('save_path',        str,  "./quant_model/MobileNet/",  "model dir to sav
 add_arg('model_filename',       str, None,                 "model file name")
 add_arg('params_filename',      str, None,                 "params file name")
 add_arg('resize_short_size', int, 256,                      "Set resize short size")
-
+add_arg('activation_quantize_type', str,"range_abs_max", "quantize type")
+add_arg('weight_quantize_type', str, "channel_wise_abs_max", "quantize type")
+## reader
+#add_arg('data_dim',       int,  224,                 "data dimension")
+#add_arg('data_dir',       str,  "../../data/果蔬23_0910",  "data dir")
+#add_arg('image_mean',      str, "0.485,0.456,0.406",       "Input image mean")
+#add_arg('image_std',      str, "0.229,0.224,0.225",       "Input image standards")
+#add_arg('thread_num',       int,  4,                 "thread number")
+#add_arg('buf_size',       int,  224,                 "buffer size")
 
 add_arg('use_mixup',      bool,      False,        "Whether to use mixup or not")
 add_arg('mixup_alpha',      float,     0.2,      "Set the mixup_alpha parameter")
@@ -62,7 +70,9 @@ def quantize(args):
         model_filename=args.model_filename,
         params_filename=args.params_filename,
         batch_size=args.batch_size,
-        batch_nums=args.batch_num)
+        batch_nums=args.batch_num,
+        activation_quantize_type= args.activation_quantize_type,
+        weight_quantize_type=args.weight_quantize_type)
 
 
 def main():
