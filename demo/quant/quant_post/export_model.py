@@ -72,6 +72,13 @@ def export_model(args):
         class_dim = 23
         image_shape = "3,224,224"
         resize_short_size = 256
+    elif args.data == "yolov3-384":
+        import reader_cv2 as reader
+        train_reader = reader.train(settings=args)
+        val_reader = reader.val(settings=args)
+        class_dim = 80
+        image_shape = "3,384,384"
+
     else:
         raise ValueError("{} is not supported.".format(args.data))
 

@@ -21,9 +21,9 @@ _logger = get_logger(__name__, level=logging.INFO)
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 # yapf: disable
-add_arg('batch_size',       int,  32,                 "Minibatch size.")
+add_arg('batch_size',       int,  16,                 "Minibatch size.")
 add_arg('batch_num',        int,  5,               "Batch number")
-add_arg('image_shape',      str, "3,224,224",       "Input image size")
+add_arg('image_shape',      str, "3,608,608",       "Input image size")
 add_arg('use_gpu',          bool, True,                "Whether to use GPU or not.")
 add_arg('model_path',       str,  "./inference_model/MobileNet/",  "model dir")
 add_arg('save_path',        str,  "./quant_model/MobileNet/",  "model dir to save quanted model")
@@ -55,13 +55,26 @@ add_arg('upper_ratio',      float,     4./3.,      "Set the upper_ratio in ramdo
 def quantize(args):
     #val_reader = reader.train()
     #val_reader = paddle.batch(reader.train(settings=args), batch_size=args.batch_size)
-    val_reader = reader.train(settings=args)
+    val_reader = reader.train_yolov3(settings=args)
     place = fluid.CUDAPlace(0) if args.use_gpu else fluid.CPUPlace()
 
     assert os.path.exists(args.model_path), "args.model_path doesn't exist"
     assert os.path.isdir(args.model_path), "args.model_path must be a dir"
 
     exe = fluid.Executor(place)
+    #[inference_program, feed_target_names, fetch_targets] = fluid.io.load_inference_model(dirname=args.model_path,
+    #                                                                                      model_filename='model',
+    #                                                                                      params_filename='params',
+    #                                                                                      executor=exe)
+
+    
+    #for img in val_reader():
+     #   print('-------', img[0].shape)
+     #   print ('-----', img)
+     #   print(feed_target_names)
+        #[features] = exe.run(inference_program, fetch_list=fetch_targets, feed={feed_target_names[0]:img[0], feed_target_names[1]:np.array([[1,1]))
+        #exe.run()
+    #return 
     quant_post(
         executor=exe,
         model_dir=args.model_path,

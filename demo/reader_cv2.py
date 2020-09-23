@@ -20,6 +20,9 @@ import numpy as np
 import cv2
 import io
 
+from PIL import Image
+from PIL import ImageDraw
+
 import argparse
 from utility import add_arguments, print_arguments
 
@@ -289,8 +292,11 @@ def process_image(sample,
     img /= img_std
 
     if mode == 'train' or mode == 'val':
-        print (sample[1])
+       # print (sample[1])
+        img = np.expand_dims(img, 0)
+        #print (img.shape)
         return (img, sample[1])
+        
     elif mode == 'test':
         return (img, )
 
@@ -299,6 +305,124 @@ def image_mapper(**kwargs):
     """ image_mapper """
     return functools.partial(process_image, **kwargs)
 
+## yolov3
+## begin
+def resize_img(img, target_size):
+    """
+    保持比例的缩放图片
+    :param img:
+    :param target_size:
+    :return:
+    """
+    img = img.resize(target_size[1:], Image.BILINEAR)
+
+    return img
+
+def read_image(img):
+    """
+    读取图片
+    :param img_path:
+    :return:
+    """
+    origin = img
+    #img = resize_img(origin, yolo_config["input_size"])
+    img = resize_img(origin, np.array([3,384,384]))
+    
+    resized_img = img.copy()
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    img = np.array(img).astype('float32').transpose((2, 0, 1))  # HWC to CHW
+    img -= 127.5
+    img *= 0.007843
+    img = img[np.newaxis, :]
+    return origin, img, resized_img
+
+def _reader_creator_yolov3(settings,
+                    file_list,
+                    mode,
+                    shuffle=False,
+                    color_jitter=False,
+                    rotate=False,
+                    data_dir=DATA_DIR,
+                    pass_id_as_seed=0):
+    def reader():
+        with open(file_list) as flist:
+            full_lines = [line.strip() for line in flist]
+
+            if shuffle:
+                if pass_id_as_seed:
+                    np.random.seed(pass_id_as_seed)
+                np.random.shuffle(full_lines)
+            if mode == 'train' and os.getenv('PADDLE_TRAINING_ROLE'):
+                # distributed mode if the env var `PADDLE_TRAINING_ROLE` exits
+                trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
+                trainer_count = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
+                per_node_lines = len(full_lines) // trainer_count
+                lines = full_lines[trainer_id * per_node_lines:(trainer_id + 1)
+                                   * per_node_lines]
+                print(
+                    "read images from %d, length: %d, lines length: %d, total: %d"
+                    % (trainer_id * per_node_lines, per_node_lines, len(lines),
+                       len(full_lines)))
+            else:
+                lines = full_lines
+            
+
+            for line in lines:
+                if mode == 'train' or mode == 'val':
+                    if len(line.split())>2:
+                        continue
+                    img_path, label = line.split()
+                    ## debug
+                    ##print (img_path)
+                    img_path = os.path.join(data_dir, img_path)
+                    #yield img_path, int(label)
+                    image = cv2.imread(img_path)
+                    image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                    origin, tensor_img, resized_img = read_image(image)
+                    input_w, input_h = origin.size[0], origin.size[1]
+                    image_shape = np.array([input_h, input_w], dtype='int32')
+                    #print("$$$$$", image_shape[np.newaxis, :])
+                    #yield img_path, int(label)
+                    yield img_path, image_shape[np.newaxis, :]
+                elif mode == 'test':
+                    if len(line.split())>2:
+                        continue
+                    img_path, label = line.split()
+                    img_path = os.path.join(data_dir, img_path)
+
+                    yield [img_path]
+
+    crop_size = int(settings.image_shape.split(",")[2])
+    image_mapper = functools.partial(
+        process_image,
+        settings=settings,
+        mode=mode,
+        color_jitter=color_jitter,
+        rotate=rotate,
+        crop_size=crop_size)
+    reader = paddle.reader.xmap_readers(
+        image_mapper, reader, THREAD, BUF_SIZE, order=False)
+    return reader 
+
+def train_yolov3(settings, data_dir=DATA_DIR, pass_id_as_seed=0, train_list_name=TRAIN_LIST):
+    #file_list = os.path.join(data_dir, 'train_list.txt')
+    file_list = os.path.join(data_dir, TRAIN_LIST)
+    reader = _reader_creator_yolov3(
+        settings,
+        file_list,
+        'train',
+        #'test',
+        shuffle=True,
+        color_jitter=False,
+        rotate=False,
+        data_dir=data_dir,
+        pass_id_as_seed=pass_id_as_seed, )
+    if settings.use_mixup == True:
+        reader = create_mixup_reader(settings, reader)
+    return reader
+
+##end
 
 def _reader_creator(settings,
                     file_list,
@@ -340,6 +464,7 @@ def _reader_creator(settings,
                     ##print (img_path)
                     img_path = os.path.join(data_dir, img_path)
                     #yield img_path, int(label)
+                    
                     yield img_path, 0
                 elif mode == 'test':
                     if len(line.split())>2:
